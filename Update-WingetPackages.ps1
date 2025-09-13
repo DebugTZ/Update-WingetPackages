@@ -1,16 +1,25 @@
 # Check required module
 $RequiredModule = "Microsoft.WinGet.Client"
 
-# Install if not installed
-if(!(get-module $RequiredModule)){
+# Installieren, wenn nicht vorhanden
+if (-not (Get-Module -ListAvailable -Name $RequiredModule)) {
     Write-Host "Das benötigte Modul $RequiredModule ist nicht installiert." -ForegroundColor DarkYellow
     Write-Host "Installiere das benötigte Modul $RequiredModule..."
-
-    Install-Module $RequiredModule -AcceptLicense -Force
+    try {
+        Install-Module $RequiredModule -AcceptLicense -Force -ErrorAction Stop
+    } catch {
+        Write-Host "Fehler bei der Installation des Moduls: $_" -ForegroundColor Red
+        exit 1
+    }
 }
 
 # Winget-Modul importieren
-Import-Module $RequiredModule
+try {
+    Import-Module $RequiredModule -ErrorAction Stop
+} catch {
+    Write-Host "Fehler beim Importieren des Moduls: $_" -ForegroundColor Red
+    exit 1
+}
 
 Write-Host "Winget Version: $(Get-WinGetVersion)"
 Write-Host "Suche nach installierten Paketen..."
@@ -21,7 +30,15 @@ $Exceptions = @("WavesAudio.WavesCentral", "Weitere.ID")
 
 # Jedes Paket auf Updates prüfen und aktualisieren
 foreach($Package in $InstalledPackages){
-    if($Package.id -notin $Exceptions){
-        Update-WinGetPackage $Package -Mode Silent
+    if ($Package.Id -notin $Exceptions) {
+        Write-Host "Prüfe Update für $($Package.Name)..."
+        try {
+            Update-WinGetPackage $Package -Mode Silent -ErrorAction Stop
+            Write-Host "$($Package.Name) ist aktuell." -ForegroundColor DarkGreen
+        } catch {
+            Write-Host "Fehler beim Aktualisieren von $($Package.Name): $_" -ForegroundColor Red
+        }
+    } else {
+        Write-Host "$($Package.Name) ist in der Ausnahmeliste und wird übersprungen." -ForegroundColor DarkYellow
     }
 }
